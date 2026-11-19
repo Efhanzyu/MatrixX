@@ -1,0 +1,13 @@
+# Compiled executables
+/anggota1/sequential
+/anggota1/openmp
+/anggota2/mpi
+/anggota3/hybrid
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temporary files
+*.tmp
+*.log
