@@ -1,0 +1,27 @@
+Waktu mulai : 2026-11-21T03:16:15
+Argumen     : sizes=[512, 1024, 2048, 4096] repeats=5 baseline_runs=3
+Konfigurasi : [(1, 1), (1, 2), (1, 4), (2, 1), (2, 2), (4, 1)]
+
+== CPU ==
+CPU(s):                                  4
+Model name:                              Intel(R) N150
+Thread(s) per core:                      1
+Core(s) per socket:                      4
+Socket(s):                               1
+
+== Memori ==
+total        used        free      shared  buff/cache   available
+Mem:           3.7Gi       438Mi       3.1Gi       4.2Mi       265Mi       3.3Gi
+Swap:          1.0Gi          0B       1.0Gi
+
+== OS ==
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+VERSION="26.04.1 LTS (Resolute Raccoon)"
+6.18.58.1-microsoft-standard-WSL2
+
+== Compiler / MPI ==
+g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+Open MPI: 5.0.10
+
+== Python ==
+Python 3.14.4
