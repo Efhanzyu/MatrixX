@@ -1,0 +1,86 @@
+services:
+  # ----------------------------------------------------------------------------
+  # Master / Coordinator Node (Rank 0)
+  # Bertanggung jawab atas task scheduling, kompilasi, & mpirun orchestration
+  # ----------------------------------------------------------------------------
+  master-node:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cluster
+    container_name: matrixx-master
+    hostname: master-node
+    networks:
+      hpc-cluster-net:
+        ipv4_address: 172.20.0.2
+    volumes:
+      - ../:/workspace
+    ports:
+      - "2222:22"
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------------------
+  # Compute Worker Node 1 (MPI Rank 1)
+  # ----------------------------------------------------------------------------
+  worker-1:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cluster
+    container_name: matrixx-worker-1
+    hostname: worker-1
+    networks:
+      hpc-cluster-net:
+        ipv4_address: 172.20.0.3
+    volumes:
+      - ../:/workspace
+    depends_on:
+      - master-node
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------------------
+  # Compute Worker Node 2 (MPI Rank 2)
+  # ----------------------------------------------------------------------------
+  worker-2:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cluster
+    container_name: matrixx-worker-2
+    hostname: worker-2
+    networks:
+      hpc-cluster-net:
+        ipv4_address: 172.20.0.4
+    volumes:
+      - ../:/workspace
+    depends_on:
+      - master-node
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------------------
+  # Monitoring Dashboard (Flask + Web GUI)
+  # ----------------------------------------------------------------------------
+  dashboard:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cluster
+    container_name: matrixx-dashboard
+    hostname: dashboard
+    working_dir: /workspace/dashboard
+    command: python3 app.py
+    networks:
+      hpc-cluster-net:
+        ipv4_address: 172.20.0.5
+    volumes:
+      - ../:/workspace
+    ports:
+      - "5000:5000"
+    depends_on:
+      - master-node
+      - worker-1
+      - worker-2
+    restart: unless-stopped
+
+networks:
+  hpc-cluster-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

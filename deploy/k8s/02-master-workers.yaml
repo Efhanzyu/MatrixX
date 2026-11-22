@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matrixx-master
+  namespace: matrixx-hpc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: matrixx-master
+  template:
+    metadata:
+      labels:
+        app: matrixx-master
+    spec:
+      containers:
+        - name: master
+          image: matrixx/cluster:latest
+          command: ["/usr/sbin/sshd", "-D"]
+          ports:
+            - containerPort: 22
+          volumeMounts:
+            - name: shared-vol
+              mountPath: /workspace
+      volumes:
+        - name: shared-vol
+          persistentVolumeClaim:
+            claimName: matrixx-pvc
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: matrixx-worker
+  namespace: matrixx-hpc
+spec:
+  serviceName: matrixx-worker-svc
+  replicas: 2
+  selector:
+    matchLabels:
+      app: matrixx-worker
+  template:
+    metadata:
+      labels:
+        app: matrixx-worker
+    spec:
+      containers:
+        - name: worker
+          image: matrixx/cluster:latest
+          command: ["/usr/sbin/sshd", "-D"]
+          ports:
+            - containerPort: 22
+          volumeMounts:
+            - name: shared-vol
+              mountPath: /workspace
+      volumes:
+        - name: shared-vol
+          persistentVolumeClaim:
+            claimName: matrixx-pvc

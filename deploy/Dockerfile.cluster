@@ -1,0 +1,42 @@
+# ==============================================================================
+# MatrixX HPC Cluster Dockerfile (Master & Worker Nodes)
+# Environment: Ubuntu 24.04 with OpenMPI, C++17, Python, and SSH
+# ==============================================================================
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV OMPI_ALLOW_RUN_AS_ROOT=1
+ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
+# Install toolchain, OpenMPI, and SSH daemon
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    g++ \
+    openmpi-bin \
+    openmpi-common \
+    libopenmpi-dev \
+    openssh-server \
+    openssh-client \
+    python3 \
+    python3-pip \
+    python3-pandas \
+    python3-matplotlib \
+    curl \
+    iputils-ping \
+    net-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure SSH for passwordless inter-node MPI execution
+RUN mkdir /var/run/sshd && \
+    mkdir -p /root/.ssh && \
+    ssh-keygen -t rsa -f /root/.ssh/id_rsa -N "" && \
+    cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys && \
+    echo "StrictHostKeyChecking no" >> /root/.ssh/config && \
+    echo "UserKnownHostsFile /dev/null" >> /root/.ssh/config
+
+WORKDIR /workspace
+
+# Default expose SSH port for MPI communication
+EXPOSE 22
+
+CMD ["/usr/sbin/sshd", "-D"]

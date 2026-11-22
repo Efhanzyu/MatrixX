@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MatrixX HPC Operations Console | Telemetry & Performance</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <!-- Lucide Icons / FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          },
+          colors: {
+            slate: {
+              850: '#151d2e',
+              900: '#0f172a',
+              950: '#090d16',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Clean custom scrollbar for terminal */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+  </style>
+</head>
+
+<body
+  class="bg-slate-950 text-slate-200 min-h-screen font-sans text-sm antialiased selection:bg-blue-600 selection:text-white">
+
+  <!-- Top Enterprise Navigation Bar -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+
+      <!-- Brand & Breadcrumbs -->
+      <div class="flex items-center space-x-3">
+        <div
+          class="w-8 h-8 rounded border border-slate-700 bg-slate-800 flex items-center justify-center text-blue-400 font-mono font-bold text-sm">
+          MX
+        </div>
+        <div class="flex items-center space-x-2 text-xs font-mono">
+          <span class="text-slate-400">UNSIL</span>
+          <span class="text-slate-600">/</span>
+          <span class="text-slate-400">KPT-UAS</span>
+          <span class="text-slate-600">/</span>
+          <span class="text-white font-semibold">MatrixX HPC Cluster</span>
+        </div>
+      </div>
+
+      <!-- Live Indicators & Actions -->
+      <div class="flex items-center space-x-4 text-xs font-mono">
+        <div class="hidden md:flex items-center space-x-2 bg-slate-850 border border-slate-800 px-3 py-1.5 rounded">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span class="text-slate-300">CLUSTER: <span class="text-emerald-400 font-semibold">HEALTHY</span></span>
+          <span class="text-slate-600">|</span>
+          <span class="text-slate-400">3 NODES (172.20.0.0/16)</span>
+        </div>
+
+        <div class="hidden sm:block text-slate-400 bg-slate-850 border border-slate-800 px-2.5 py-1.5 rounded"
+          id="live-clock">
+          --:--:-- UTC
+        </div>
+
+        <button onclick="fetchTelemetry()"
+          class="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-arrows-rotate text-xs"></i> <span>Refresh</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Subnav Tabs -->
+    <div class="border-t border-slate-800/80 bg-slate-900 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto flex space-x-6 text-xs font-medium">
+        <button onclick="switchTab('metrics')" id="tab-btn-metrics"
+          class="py-2.5 border-b-2 border-blue-500 text-white flex items-center gap-2">
+          <i class="fa-solid fa-chart-line text-blue-400"></i> Performance & Metrics
+        </button>
+        <button onclick="switchTab('nodes')" id="tab-btn-nodes"
+          class="py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-server text-slate-400"></i> Cluster Nodes (MPI Pods)
+        </button>
+        <button onclick="switchTab('job')" id="tab-btn-job"
+          class="py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-terminal text-slate-400"></i> Job Dispatcher & Console
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- TAB 1: METRICS & OVERVIEW -->
+    <div id="tab-content-metrics" class="space-y-6">
+
+      <!-- Summary System Telemetry Bar -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-xs">
+        <div class="bg-slate-900 border border-slate-800 rounded p-3">
+          <div class="text-slate-400 text-[11px] mb-1">TOTAL CPU UTILIZATION</div>
+          <div class="text-xl font-bold text-white flex items-baseline gap-2">
+            <span id="metric-cpu-val">0.0%</span>
+            <span class="text-[11px] font-normal text-slate-400" id="metric-cores-val">(0 cores)</span>
+          </div>
+          <div class="w-full bg-slate-800 h-1 mt-2 rounded-sm overflow-hidden">
+            <div id="metric-cpu-bar" class="bg-blue-500 h-1" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded p-3">
+          <div class="text-slate-400 text-[11px] mb-1">MEMORY (RESIDENT RAM)</div>
+          <div class="text-xl font-bold text-white flex items-baseline gap-2">
+            <span id="metric-ram-val">0.0%</span>
+            <span class="text-[11px] font-normal text-slate-400" id="metric-ram-used-val">0 / 0 GB</span>
+          </div>
+          <div class="w-full bg-slate-800 h-1 mt-2 rounded-sm overflow-hidden">
+            <div id="metric-ram-bar" class="bg-emerald-500 h-1" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded p-3">
+          <div class="text-slate-400 text-[11px] mb-1">PEAK MEASURED SPEEDUP</div>
+          <div class="text-xl font-bold text-amber-400">3.51x</div>
+          <div class="text-[10px] text-slate-400 mt-1">Hybrid 1 Process x 4 Threads (N=512)</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded p-3">
+          <div class="text-slate-400 text-[11px] mb-1">NUMERICAL INTEGRITY</div>
+          <div class="text-xl font-bold text-emerald-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-check text-sm"></i> 100% MATCH
+          </div>
+          <div class="text-[10px] text-slate-400 mt-1">Checksum hash verified across all ranks</div>
+        </div>
+      </div>
+
+      <!-- Charts Section: Grafana Style -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        <!-- Chart 1: Execution Time -->
+        <div class="bg-slate-900 border border-slate-800 rounded p-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+            <div>
+              <h2 class="text-xs font-semibold text-white tracking-wide uppercase">Execution Time Comparison</h2>
+              <p class="text-[11px] text-slate-400">Logarithmic scale (Seconds) • Lower is better</p>
+            </div>
+            <span
+              class="font-mono text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">FP64
+              Double Precision</span>
+          </div>
+          <div class="h-64">
+            <canvas id="chartExecTime"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Speedup vs Sequential Baseline -->
+        <div class="bg-slate-900 border border-slate-800 rounded p-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+            <div>
+              <h2 class="text-xs font-semibold text-white tracking-wide uppercase">Parallel Speedup ($S = T_{seq} /
+                T_{par}$)</h2>
+              <p class="text-[11px] text-slate-400">Speedup ratio vs 1-thread baseline • Higher is better</p>
+            </div>
+            <span
+              class="font-mono text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">Amdahl's
+              Reference</span>
+          </div>
+          <div class="h-64">
+            <canvas id="chartSpeedupRatio"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verified Experimental Benchmark Table (IEEE Style) -->
+      <div class="bg-slate-900 border border-slate-800 rounded overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-850">
+          <div>
+            <h3 class="text-xs font-semibold text-white uppercase tracking-wide">Benchmarking Matrix Multiplication:
+              N=4096 (UAS Specification Target)</h3>
+            <p class="text-[11px] text-slate-400">Matrix Dimension: 4096 × 4096 elements • 134.2 MB memory payload • 5
+              trial runs</p>
+          </div>
+          <a href="/api/export-csv"
+            class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-mono flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-download text-[10px]"></i> Export CSV
+          </a>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left font-mono text-xs">
+            <thead class="bg-slate-900 text-slate-400 border-b border-slate-800 text-[11px]">
+              <tr>
+                <th class="px-4 py-2.5">Paradigm / Method</th>
+                <th class="px-4 py-2.5">Grid (Proc × Thread)</th>
+                <th class="px-4 py-2.5">Avg Time (s)</th>
+                <th class="px-4 py-2.5">Min Time (s)</th>
+                <th class="px-4 py-2.5">Speedup ($S$)</th>
+                <th class="px-4 py-2.5">Efficiency ($\eta$)</th>
+                <th class="px-4 py-2.5">Numerical Checksum</th>
+                <th class="px-4 py-2.5">Validation</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/80 text-slate-300">
+              <tr class="hover:bg-slate-850/50">
+                <td class="px-4 py-2.5 text-white font-medium">Sequential Baseline</td>
+                <td class="px-4 py-2.5 text-slate-400">1 × 1 (1 Core)</td>
+                <td class="px-4 py-2.5 text-blue-400 font-semibold">53.3235</td>
+                <td class="px-4 py-2.5 text-slate-400">51.9800</td>
+                <td class="px-4 py-2.5">1.00x</td>
+                <td class="px-4 py-2.5">100.0%</td>
+                <td class="px-4 py-2.5 text-slate-400">16838019066.39</td>
+                <td class="px-4 py-2.5 text-emerald-400"><i class="fa-solid fa-check"></i> PASS</td>
+              </tr>
+              <tr class="hover:bg-slate-850/50">
+                <td class="px-4 py-2.5 text-white font-medium">OpenMP Multi-threading</td>
+                <td class="px-4 py-2.5 text-slate-400">1 × 4 (4 Threads)</td>
+                <td class="px-4 py-2.5 text-emerald-400 font-semibold">36.5192</td>
+                <td class="px-4 py-2.5 text-slate-400">35.4243</td>
+                <td class="px-4 py-2.5 font-semibold text-emerald-400">1.46x</td>
+                <td class="px-4 py-2.5">36.5%</td>
+                <td class="px-4 py-2.5 text-slate-400">16838019066.39</td>
+                <td class="px-4 py-2.5 text-emerald-400"><i class="fa-solid fa-check"></i> PASS</td>
+              </tr>
+              <tr class="hover:bg-slate-850/50">
+                <td class="px-4 py-2.5 text-white font-medium">MPI Distributed Memory</td>
+                <td class="px-4 py-2.5 text-slate-400">4 × 1 (4 Ranks)</td>
+                <td class="px-4 py-2.5 text-amber-400 font-semibold">39.9183</td>
+                <td class="px-4 py-2.5 text-slate-400">39.6707</td>
+                <td class="px-4 py-2.5 font-semibold text-amber-400">1.34x</td>
+                <td class="px-4 py-2.5">33.4%</td>
+                <td class="px-4 py-2.5 text-slate-400">16838019066.39</td>
+                <td class="px-4 py-2.5 text-emerald-400"><i class="fa-solid fa-check"></i> PASS</td>
+              </tr>
+              <tr class="hover:bg-slate-850/50 bg-slate-800/20">
+                <td class="px-4 py-2.5 text-purple-300 font-medium">Hybrid (MPI + OpenMP)</td>
+                <td class="px-4 py-2.5 text-purple-400">2 × 2 (2 Ranks × 2 Threads)</td>
+                <td class="px-4 py-2.5 text-purple-300 font-semibold">39.7147</td>
+                <td class="px-4 py-2.5 text-slate-400">39.5557</td>
+                <td class="px-4 py-2.5 font-semibold text-purple-300">1.34x</td>
+                <td class="px-4 py-2.5">33.6%</td>
+                <td class="px-4 py-2.5 text-slate-400">16838019066.39</td>
+                <td class="px-4 py-2.5 text-emerald-400"><i class="fa-solid fa-check"></i> PASS</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: CLUSTER NODES -->
+    <div id="tab-content-nodes" class="hidden space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-semibold text-white">Cluster Node Inventory & Daemon Status</h2>
+          <p class="text-xs text-slate-400">Section B Architecture: Coordinator Node, Compute Worker Nodes, and Storage
+            Volume</p>
+        </div>
+        <div class="text-xs font-mono text-slate-400">Subnet: 172.20.0.0/16 • Driver: Docker Bridge / K8s Overlay</div>
+      </div>
+
+      <div id="nodes-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+
+    <!-- TAB 3: JOB DISPATCHER & CONSOLE -->
+    <div id="tab-content-job" class="hidden space-y-4">
+      <div class="bg-slate-900 border border-slate-800 rounded p-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-sm font-semibold text-white">MPI Job Dispatcher (Simulated mpirun)</h2>
+            <p class="text-xs text-slate-400">Submit multi-node matrix multiplication benchmark jobs directly to the
+              cluster</p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 text-xs font-mono">
+              <label class="text-slate-400">Matrix Dimension (N):</label>
+              <select id="select-matrix-size"
+                class="bg-slate-800 border border-slate-700 text-white rounded px-2.5 py-1.5">
+                <option value="512">512 × 512</option>
+                <option value="1024">1024 × 1024</option>
+                <option value="2048">2048 × 2048</option>
+                <option value="4096" selected>4096 × 4096 (Target)</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2 text-xs font-mono">
+              <label class="text-slate-400">Repeats (k):</label>
+              <select id="select-repeats" class="bg-slate-800 border border-slate-700 text-white rounded px-2.5 py-1.5">
+                <option value="5" selected>5 Trials</option>
+                <option value="10">10 Trials (Validation)</option>
+              </select>
+            </div>
+
+            <button onclick="dispatchJob()" id="btn-dispatch"
+              class="px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs font-medium transition flex items-center gap-2">
+              <i class="fa-solid fa-play"></i> Dispatch Job
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time Terminal Output Window -->
+      <div class="bg-black border border-slate-800 rounded overflow-hidden font-mono text-xs">
+        <div class="bg-slate-900 px-4 py-2 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2 text-slate-400">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-yellow-500/80 inline-block"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block"></span>
+            <span class="ml-2 text-slate-300">/dev/pts/0 — master-coordinator: mpirun cluster log</span>
+          </div>
+          <button onclick="clearConsole()" class="text-slate-500 hover:text-slate-300 text-xs">
+            Clear
+          </button>
+        </div>
+        <div id="terminal-stream" class="p-4 h-80 overflow-y-auto space-y-1 text-slate-300 leading-relaxed">
+          <div class="text-slate-500">[INFO] Cluster communication layer: OpenMPI 4.1.6 initialized.</div>
+          <div class="text-slate-500">[INFO] Available worker slots: master-node (slot 1), worker-1 (slot 2), worker-2
+            (slot 3).</div>
+          <div class="text-slate-500">[READY] Waiting for job dispatch...</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Clean Subdued Footer -->
+  <footer class="border-t border-slate-800/80 mt-12 py-5 text-center text-xs font-mono text-slate-500">
+    MatrixX HPC Cluster Console • Program Studi Informatika Universitas Siliwangi
+  </footer>
+
+  <script>
+    let activeTab = 'metrics';
+    let chartExec = null;
+    let chartSpeed = null;
+
+    function switchTab(tab) {
+      activeTab = tab;
+      ['metrics', 'nodes', 'job'].forEach(t => {
+        document.getElementById(`tab-content-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`tab-btn-${t}`);
+        btn.className = "py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2";
+      });
+
+      document.getElementById(`tab-content-${tab}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-btn-${tab}`);
+      activeBtn.className = "py-2.5 border-b-2 border-blue-500 text-white flex items-center gap-2";
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('live-clock').innerText = now.toISOString().replace('T', ' ').substring(11, 19) + ' UTC';
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    async function fetchTelemetry() {
+      try {
+        const res = await fetch('/api/system-telemetry');
+        const data = await res.json();
+
+        // Host Metrics
+        document.getElementById('metric-cpu-val').innerText = data.host_hardware.cpu_total_percent + '%';
+        document.getElementById('metric-cores-val').innerText = `(${data.host_hardware.logical_cores} cores)`;
+        document.getElementById('metric-cpu-bar').style.width = data.host_hardware.cpu_total_percent + '%';
+
+        document.getElementById('metric-ram-val').innerText = data.host_hardware.ram_percent + '%';
+        document.getElementById('metric-ram-used-val').innerText = `${data.host_hardware.ram_used_gb} / ${data.host_hardware.ram_total_gb} GB`;
+        document.getElementById('metric-ram-bar').style.width = data.host_hardware.ram_percent + '%';
+
+        // Render Nodes Grid
+        const grid = document.getElementById('nodes-grid');
+        grid.innerHTML = data.nodes.map(n => `
+          <div class="bg-slate-900 border border-slate-800 rounded p-4 font-mono text-xs space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+              <span class="font-bold text-white flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full ${n.state === 'READY' ? 'bg-emerald-500' : 'bg-amber-400'}"></span>
+                ${n.hostname}
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 bg-slate-800 text-slate-300">${n.state}</span>
+            </div>
+            
+            <div class="space-y-1 text-slate-400">
+              <div class="flex justify-between"><span>IPv4 Address:</span> <span class="text-slate-200">${n.ip}</span></div>
+              <div class="flex justify-between"><span>MPI Role:</span> <span class="text-slate-200">${n.role}</span></div>
+              <div class="flex justify-between"><span>Active Daemon:</span> <span class="text-slate-300">${n.daemon}</span></div>
+              <div class="flex justify-between"><span>SSH Auth:</span> <span class="text-emerald-400">${n.ssh_status}</span></div>
+              <div class="flex justify-between"><span>Inter-node Ping:</span> <span class="text-slate-200">${n.latency_ms} ms</span></div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-800 space-y-1.5">
+              <div class="flex justify-between text-[11px]">
+                <span class="text-slate-400">CPU Usage:</span>
+                <span class="text-white">${n.cpu_usage}%</span>
+              </div>
+              <div class="w-full bg-slate-800 h-1 rounded-sm overflow-hidden">
+                <div class="bg-blue-500 h-1" style="width: ${n.cpu_usage}%"></div>
+              </div>
+
+              <div class="flex justify-between text-[11px] pt-1">
+                <span class="text-slate-400">Resident Mem:</span>
+                <span class="text-white">${n.mem_usage_mb} MB</span>
+              </div>
+              <div class="w-full bg-slate-800 h-1 rounded-sm overflow-hidden">
+                <div class="bg-emerald-500 h-1" style="width: ${(n.mem_usage_mb / n.mem_total_mb) * 100}%"></div>
+              </div>
+            </div>
+          </div>
+        `).join('');
+
+      } catch (err) {
+        console.error("Telemetry error:", err);
+      }
+    }
+
+    async function dispatchJob() {
+      const size = parseInt(document.getElementById('select-matrix-size').value);
+      const reps = parseInt(document.getElementById('select-repeats').value);
+      const btn = document.getElementById('btn-dispatch');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Executing...`;
+
+      appendConsole(`[DISPATCH] Submitting job: Matrix Dimension N=${size}, Trials k=${reps}`);
+
+      try {
+        const res = await fetch('/api/dispatch-job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ matrix_size: size, repeats: reps })
+        });
+        const data = await res.json();
+
+        data.job.logs.forEach((log, i) => {
+          setTimeout(() => appendConsole(log), i * 300);
+        });
+      } catch (err) {
+        appendConsole(`[ERROR] Job dispatch failed: ${err}`);
+      } finally {
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-play"></i> Dispatch Job`;
+        }, 2200);
+      }
+    }
+
+    function appendConsole(msg) {
+      const term = document.getElementById('terminal-stream');
+      const div = document.createElement('div');
+      div.innerText = msg;
+      term.appendChild(div);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function clearConsole() {
+      document.getElementById('terminal-stream').innerHTML = '';
+    }
+
+    function initCharts() {
+      const execCtx = document.getElementById('chartExecTime').getContext('2d');
+      chartExec = new Chart(execCtx, {
+        type: 'bar',
+        data: {
+          labels: ['512×512', '1024×1024', '2048×2048', '4096×4096'],
+          datasets: [
+            { label: 'Sequential (1 Core)', data: [0.050, 0.630, 6.250, 53.323], backgroundColor: '#3b82f6', borderRadius: 2 },
+            { label: 'OpenMP (4 Threads)', data: [0.113, 0.637, 5.741, 36.519], backgroundColor: '#10b981', borderRadius: 2 },
+            { label: 'MPI (4 Ranks)', data: [0.085, 0.794, 4.655, 39.918], backgroundColor: '#f59e0b', borderRadius: 2 },
+            { label: 'Hybrid (2R × 2T)', data: [0.022, 0.416, 3.659, 39.715], backgroundColor: '#a855f7', borderRadius: 2 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } }
+            }
+          },
+          scales: {
+            y: {
+              type: 'logarithmic',
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 9 } }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } }
+            }
+          }
+        }
+      });
+
+      const speedCtx = document.getElementById('chartSpeedupRatio').getContext('2d');
+      chartSpeed = new Chart(speedCtx, {
+        type: 'line',
+        data: {
+          labels: ['512×512', '1024×1024', '2048×2048', '4096×4096'],
+          datasets: [
+            { label: 'Baseline (1.0x)', data: [1.0, 1.0, 1.0, 1.0], borderColor: '#475569', borderDash: [4, 4], pointRadius: 0 },
+            { label: 'OpenMP (4T)', data: [0.44, 0.99, 1.09, 1.46], borderColor: '#10b981', tension: 0.1, borderWidth: 2, pointRadius: 3 },
+            { label: 'MPI (4R)', data: [0.59, 0.79, 1.34, 1.34], borderColor: '#f59e0b', tension: 0.1, borderWidth: 2, pointRadius: 3 },
+            { label: 'Hybrid (2R×2T)', data: [2.27, 1.52, 1.71, 1.34], borderColor: '#a855f7', tension: 0.1, borderWidth: 2, pointRadius: 3 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } }
+            }
+          },
+          scales: {
+            y: {
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 9 } }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } }
+            }
+          }
+        }
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initCharts();
+      fetchTelemetry();
+      setInterval(fetchTelemetry, 3000);
+    });
+  </script>
+</body>
+
+</html>

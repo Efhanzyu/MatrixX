@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matrixx-dashboard
+  namespace: matrixx-hpc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: matrixx-dashboard
+  template:
+    metadata:
+      labels:
+        app: matrixx-dashboard
+    spec:
+      containers:
+        - name: dashboard
+          image: matrixx/cluster:latest
+          command: ["python3", "/workspace/dashboard/app.py"]
+          ports:
+            - containerPort: 5000
+          volumeMounts:
+            - name: shared-vol
+              mountPath: /workspace
+      volumes:
+        - name: shared-vol
+          persistentVolumeClaim:
+            claimName: matrixx-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: matrixx-dashboard-service
+  namespace: matrixx-hpc
+spec:
+  type: NodePort
+  selector:
+    app: matrixx-dashboard
+  ports:
+    - port: 5000
+      targetPort: 5000
+      nodePort: 30500
